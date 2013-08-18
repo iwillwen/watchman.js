@@ -216,7 +216,7 @@
     };
 
     rtn.regexp = new RegExp(
-      '^' + path
+      '^' + (isHashRouter(path) ? '\/' : '') + path
         .replace(/([\/\(]+):/g, '(?:')
         .replace(/\(\?:(\w+)((\(.*?\))*)/g, function(_, key, optional) {
           if (optional) {
@@ -229,7 +229,7 @@
         // fix double closing brackets, are there any better cases?
         // make a commit and send us a pull request. XD
         .replace('))', ')')
-        .replace(/\*/g, '(.*)') + (isHashRouter(path) ? '(#*)(.*)$' : '$')
+        .replace(/\*/g, '(.*)') + '$'
     , 'i');
     
     return rtn;
