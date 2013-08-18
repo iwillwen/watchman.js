@@ -17,7 +17,7 @@
  *   v0.0.1
  *
  * Author:
- *   Will Wen Gunn(willwengunn@gmail.com)
+ *   Will Wen Gunn(iwillwen - willwengunn@gmail.com)
  *
  * License:
  *   BSD
@@ -36,7 +36,7 @@
     // Normal
     this[name] = def();
   }
-})('watchman', function() {
+})('watchman', function(global) {
 
   var global = global || window;
 
@@ -86,7 +86,7 @@
 
     } else {
       // normal
-      if (!watch.hasOwnProperty('_watching')) {
+      if (!('_watching' in watch)) {
         // rules
         watch._watching = [];
       }
@@ -113,7 +113,7 @@
    *   );
    */
   watch.use = function() {
-    if (!watch.hasOwnProperty('_watchman_middlewares')) {
+    if (!('_watchman_middlewares' in watch)) {
       // middlewares
       watch._watchman_middlewares = [];
     }
@@ -141,6 +141,8 @@
     var path     = option.url || global.location.pathname + global.location.hash;
     var watching = watch._watching;
 
+    watch.emit('statechange', path);
+
     for (var i = 0; i < watching.length; i++) {
       if (watching[i].regexp.exec(path)) {
         // Hit!
@@ -149,12 +151,13 @@
         var params = paramsParser(path, watching[i]);
 
         var ctx = {
-          params: params
+          params: params,
+          path: path
         };
         var hit = watching[i].handler;
 
         // run the middlewares
-        if (watch.hasOwnProperty('_watchman_middlewares')) {
+        if ('_watchman_middlewares' in watch) {
           var _i = 0;
 
           function layer(index) {
@@ -175,6 +178,73 @@
         }
 
       }
+    }
+
+    if (!watch.running) {
+      if ('onhashchange' in global) {
+        switch ('function') {
+          case typeof global.addEventListener:
+            global.addHashChange = function(func, before) {
+              global.addEventListener('hashchange', func, before);
+            };
+            global.removeHashChange = function(func) {
+              global.removeEventListener('hashchange', func);
+            };
+            break;
+          case typeof global.attachEvent:
+            global.addHashChange = function(func) {
+              global.attachEvent('onhashchange', func);
+            };
+            global.removeHashChange = function(func) {
+              global.detachEvent('onhashchange', func);
+            };
+            break;
+          default:
+            global.addHashChange = function(func) {
+              global.onhashchange = func;
+            };
+            global.removeHashChange = function(func) {
+              if (global.onhashchange == func) {
+                global.onhashchange = null;
+              }
+            };
+        }
+      } else {
+        var hashChangeFuncs =  watch.hashChangeFuncs = [];
+        watch.oldHref = global.location.href;
+        global.addHashChange = function(func, before) {
+          if (typeof func === 'function') {
+            watch.hashChangeFuncs[before?'unshift':'push'](func);
+          }
+        };
+        global.removeHashChange = function(func) {
+          for (var i = hashChangeFuncs.length - 1;i >= 0;--i) {
+            if (hashChangeFuncs[i] === func) {
+              hashChangeFuncs.splice(i, 1);
+            }
+          }
+        };
+        setInterval(function() {
+          var newHref = global.location.href;
+          if (watch.oldHref !== newHref) {
+            watch.oldHref = newHref;
+            for (var i=0; i < hashChangeFuncs.length; i++) {
+              hashChangeFuncs[i].call(global, {
+                'type': 'hashchange',
+                'newURL': newHref,
+                'oldURL': watch.oldHref
+              });
+            }
+          }
+        }, 100);
+      }
+
+      global.addHashChange(function() {
+        watch.run();
+      });
+
+      watch.emit('watching');
+      watch.running = true;
     }
 
     return watch;
@@ -220,6 +290,7 @@
       '^' + (isHashRouter(path) ? '\/' : '') + path
         .replace(/([\/\(]+):/g, '(?:')
         .replace(/\(\?:(\w+)((\(.*?\))*)/g, function(_, key, optional) {
+          rtn.keys.push(key);
           if (optional) {
             var match = optional.replace(/\(|\)/g, '');
           } else {
@@ -230,7 +301,7 @@
         // fix double closing brackets, are there any better cases?
         // make a commit and send us a pull request. XD
         .replace('))', ')')
-        .replace(/\*/g, '(.*)') + '$'
+        .replace(/\*/g, '(.*)') + '((#.+)?)$'
     , 'i');
     
     return rtn;
@@ -253,6 +324,79 @@
 
     return params;
   }
+
+
+  // Events
+  watch.on = function(type, listener) {
+    if (!('_events' in watch)) {
+      watch._events = {};
+    }
+
+    if (typeof listener !== 'function') {
+      throw TypeError('listener must be a function');
+    }
+
+    if (!this._events[type]) {
+      this._events[type] = [];
+    }
+    this._events[type].push(listener);
+    return watch;
+  };
+
+  watch.once = function(type, listener) {
+    if (typeof listener !== 'function') {
+      throw TypeError('listener must be a function');
+    }
+
+    function g() {
+      watch.removeEventListener(type, g);
+      listener.apply(watch, arguments);
+    }
+    watch.on(type, g);
+    return watch;
+  };
+
+  watch.emit = function(type) {
+    if (!('_events' in watch)) {
+      watch._events = {};
+    }
+
+    var handlers = watch._events[type];
+
+    if (handlers) {
+      for (var i = 0; i < handlers.length; i++) {
+        var args = slice(arguments).slice(1);
+        handlers[i].apply(watch, args);
+      }
+    }
+    return watch;
+  };
+
+  watch.removeEventListener = function(type, listener) {
+    if (!('_events' in watch)) {
+      watch._events = {};
+    }
+
+    if (typeof listener !== 'function') {
+      throw TypeError('listener must be a function');
+    }
+
+    var handlers = watch._events[type];
+    if (handlers) {
+      var i = handlers.indexOf(listener);
+      handlers.splice(i, 1);
+    }
+    return watch;
+  };
+
+  watch.removeAllListeners = function(type) {
+    if (!('_events' in watch)) {
+      watch._events = {};
+    }
+
+    delete watch._events[type];
+    return watch;
+  };
 
   // Utils
 
