@@ -86,13 +86,13 @@
 
     } else {
       // normal
-      if (!global.hasOwnProperty('_watching')) {
+      if (!watch.hasOwnProperty('_watching')) {
         // rules
-        global._watching = [];
+        watch._watching = [];
       }
 
       var rule = createRule(path, handler);
-      global._watching.push(rule);
+      watch._watching.push(rule);
     }
 
     return watch;
@@ -113,13 +113,13 @@
    *   );
    */
   watch.use = function() {
-    if (!global.hasOwnProperty('_watchman_middlewares')) {
+    if (!watch.hasOwnProperty('_watchman_middlewares')) {
       // middlewares
-      global._watchman_middlewares = [];
+      watch._watchman_middlewares = [];
     }
     var middlewares = slice(arguments);
 
-    Array.prototype.push.apply(global._watchman_middlewares, middlewares);
+    Array.prototype.push.apply(watch._watchman_middlewares, middlewares);
 
     return watch;
   };
@@ -139,7 +139,7 @@
 
     // current path
     var path     = option.url || global.location.pathname + global.location.hash;
-    var watching = global._watching;
+    var watching = watch._watching;
 
     for (var i = 0; i < watching.length; i++) {
       if (watching[i].regexp.exec(path)) {
@@ -154,11 +154,11 @@
         var hit = watching[i].handler;
 
         // run the middlewares
-        if (global.hasOwnProperty('_watchman_middlewares')) {
+        if (watch.hasOwnProperty('_watchman_middlewares')) {
           var _i = 0;
 
           function layer(index) {
-            var curr = global._watchman_middlewares[index];
+            var curr = watch._watchman_middlewares[index];
 
             if (curr) {
               curr(ctx, function() {
@@ -214,6 +214,7 @@
       keys: [],
       regexp: null
     };
+
 
     rtn.regexp = new RegExp(
       '^' + (isHashRouter(path) ? '\/' : '') + path
