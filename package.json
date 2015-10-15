@@ -1,0 +1,25 @@
+{
+  "name": "watchman-router",
+  "version": "1.0.0",
+  "description": "Simple and mirco-size front-end router library",
+  "main": "dist/watchman.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iwillwen/watchman.js.git"
+  },
+  "keywords": [
+    "router"
+  ],
+  "author": "iwillwen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/iwillwen/watchman.js/issues"
+  },
+  "homepage": "https://github.com/iwillwen/watchman.js"
+}

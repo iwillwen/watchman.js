@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Watchman</title>
+</head>
+<body>
+  <div id="output"></div>
+
+  <nav>
+    <button id="index" href="/">首頁</button>
+    <button id="album" href="/album/1">正片</button>
+    <button id="profile" href="/u/iwillwen">用戶</button>
+    <button id="search" href="/search?keyword=test">搜索</button>
+  </nav>
+
+  <script src="http://cdn.staticfile.org/zepto/1.0rc1/zepto.min.js"></script>
+  <script src="../dist/watchman.js"></script>
+  <script src="http://cdn.staticfile.org/MinDB/0.0.3/min.min.js"></script>
+  <script src="http://cdn.staticfile.org/history.js/1.8/bundled/html4+html5/zepto.history.min.js"></script>
+  <script>
+    // Query String
+    (function() {
+      function hasOwnProperty(obj, prop) {
+        return Object.prototype.hasOwnProperty.call(obj, prop);
+      }
+
+      var qs = {};
+      qs.parse = function(qs, sep, eq, options) {
+        sep = sep || '&';
+        eq = eq || '=';
+        var obj = {};
+
+        if (typeof qs !== 'string' || qs.length === 0) {
+          return obj;
+        }
+
+        var regexp = /\+/g;
+        qs = qs.split(sep);
+
+        var maxKeys = 1000;
+        if (options && typeof options.maxKeys === 'number') {
+          maxKeys = options.maxKeys;
+        }
+
+        var len = qs.length;
+        // maxKeys <= 0 means that we should not limit keys count
+        if (maxKeys > 0 && len > maxKeys) {
+          len = maxKeys;
+        }
+
+        for (var i = 0; i < len; ++i) {
+          var x = qs[i].replace(regexp, '%20'),
+              idx = x.indexOf(eq),
+              kstr, vstr, k, v;
+
+          if (idx >= 0) {
+            kstr = x.substr(0, idx);
+            vstr = x.substr(idx + 1);
+          } else {
+            kstr = x;
+            vstr = '';
+          }
+
+          k = decodeURIComponent(kstr);
+          v = decodeURIComponent(vstr);
+
+          if (!hasOwnProperty(obj, k)) {
+            obj[k] = v;
+          } else if (Array.isArray(obj[k])) {
+            obj[k].push(v);
+          } else {
+            obj[k] = [obj[k], v];
+          }
+        }
+
+        return obj;
+      };
+
+      window.qs = qs;
+    })();
+    // Main
+    (function() {
+      var output = $('#output');
+      $('nav > button')
+        .on('click', function() {
+          var target = $(this).attr('href');
+          var title = $(this).text();
+          var id = $(this).attr('id');
+          History.pushState({ stage: id }, title, target);
+        });
+      
+      watchman.use(function(ctx, next) {
+        // parse query
+        ctx.query = qs.parse(location.search.slice(1));
+        next();
+      });
+      watchman({
+        '/': function(ctx) {
+          output.text('首頁');
+        },
+        '/album/:id': function(ctx) {
+          output.text('瀏覽正片 ' + ctx.params.id);
+        },
+        '/u/:username': function(ctx) {
+          output.text('瀏覽用戶 ' + ctx.params.username + ' 的個人頁面');
+        },
+        '/search': function(ctx) {
+          output.text('搜索關鍵詞： ' + ctx.query.keyword);
+        }
+      });
+      watchman.run();
+      History.Adapter.bind(window, 'statechange', watchman.run);
+    })();
+  </script>
+</body>
+</html>
